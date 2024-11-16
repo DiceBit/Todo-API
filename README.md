@@ -7,9 +7,9 @@
 Для запуска программы, выполните команды:
 
 ```bash
-git clone https://github.com/DiceDit/todo-api.git
-cd todo-api
-docker build -f .\build\Dockerfile  -t todo-api-image . 
+git clone https://github.com/DiceBit/Todo-API.git
+cd Todo-API
+docker build -f ./build/Dockerfile -t todo-api-image . 
 docker run --rm -p 8080:8080 todo-api-image 
 ```
 

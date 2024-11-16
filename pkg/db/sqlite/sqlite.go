@@ -74,7 +74,7 @@ func (sl *Sqlite) AddTask(ctx context.Context, dto db.TasksDTO) (db.Task, error)
 	query = `select * from Tasks where id=?`
 	row := tx.QueryRowContext(ctx, query, id)
 	if err = row.Err(); err != nil {
-		return db.Task{}, nil
+		return db.Task{}, err
 	}
 
 	err = row.Scan(&task.Id, &task.Title, &task.Description, &task.DueDate, &task.Overdue, &task.Completed)

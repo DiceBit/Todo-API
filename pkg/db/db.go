@@ -8,6 +8,13 @@ type DBInterface interface {
 	UpdateTask(ctx context.Context, dto TasksDTO, id string) (TasksResp, error)
 	DeleteTask(ctx context.Context, id string) (bool, error)
 	CompleteTask(ctx context.Context, dto CompleteDTO, id string) (TasksResp, error)
+	CheckTasks(ctx context.Context) error
+	CloseConn()
+}
+
+type Check struct {
+	Id      int
+	DueDate string
 }
 
 type CompleteDTO struct {

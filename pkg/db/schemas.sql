@@ -11,5 +11,4 @@ create table if not exists Tasks
     Completed   boolean               default false
 );
 
-create unique index DueDate_idx on Tasks (DueDate)
-
+create index if not exists DueDate_idx on Tasks (DueDate)

@@ -6,15 +6,28 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"time"
 	"todo-api/pkg/db"
 )
 
 type Sqlite struct {
-	db *sql.DB
+	Db *sql.DB
 }
 
+func InitDb(db *sql.DB) {
+	query, err := os.ReadFile(filepath.Join(os.Getenv("APP_ROOT"), "pkg", "db", "schemas.sql"))
+	if err != nil {
+		log.Fatal("Can't find schemas.sql file ", err)
+	}
+
+	_, err = db.Exec(string(query))
+	if err != nil {
+		log.Fatal("Error initialization DB. ", err)
+		return
+	}
+}
 func NewConn() *Sqlite {
-	path := filepath.Join(os.Getenv("GOPATH"), "todo-api", "pkg", "db", "todo.db")
+	path := filepath.Join(os.Getenv("APP_ROOT"), "pkg", "db", "todo.db")
 	_db, err := sql.Open("sqlite3", path)
 	if err != nil {
 		log.Println(err)
@@ -27,25 +40,27 @@ func NewConn() *Sqlite {
 		return nil
 	}
 
+	InitDb(_db)
+
 	dbConn := Sqlite{
-		db: _db,
+		Db: _db,
 	}
+
 	return &dbConn
 }
-
 func (sl *Sqlite) CloseConn() {
-	sl.db.Close()
+	sl.Db.Close()
 }
 
 func (sl *Sqlite) AddTask(ctx context.Context, dto db.TasksDTO) (db.Task, error) {
-	tx, err := sl.db.Begin()
+	tx, err := sl.Db.Begin()
 	if err != nil {
 		return db.Task{}, err
 	}
 	defer tx.Rollback()
 
 	query := `insert into Tasks(Title, Description, DueDate) values (?, ?, ?)`
-	res, err := tx.Exec(query, dto.Title, dto.Description, dto.DueDate)
+	res, err := tx.ExecContext(ctx, query, dto.Title, dto.Description, dto.DueDate)
 	if err != nil {
 		return db.Task{}, err
 	}
@@ -57,12 +72,12 @@ func (sl *Sqlite) AddTask(ctx context.Context, dto db.TasksDTO) (db.Task, error)
 	}
 
 	query = `select * from Tasks where id=?`
-	row := tx.QueryRow(query, id)
+	row := tx.QueryRowContext(ctx, query, id)
 	if err = row.Err(); err != nil {
 		return db.Task{}, nil
 	}
 
-	err = row.Scan(&task.Id, &task.Title, &task.Description, &task.DueDate, &task.Overdue)
+	err = row.Scan(&task.Id, &task.Title, &task.Description, &task.DueDate, &task.Overdue, &task.Completed)
 	if err != nil {
 		return db.Task{}, err
 	}
@@ -73,8 +88,8 @@ func (sl *Sqlite) AddTask(ctx context.Context, dto db.TasksDTO) (db.Task, error)
 	return task, nil
 }
 func (sl *Sqlite) Tasks(ctx context.Context) ([]db.TasksResp, error) {
-	query := `select Title, Description, DueDate, Overdue from Tasks`
-	rows, err := sl.db.Query(query)
+	query := `select Title, Description, DueDate, Overdue, Completed from Tasks`
+	rows, err := sl.Db.QueryContext(ctx, query)
 	if err != nil {
 		return nil, err
 	}
@@ -87,7 +102,8 @@ func (sl *Sqlite) Tasks(ctx context.Context) ([]db.TasksResp, error) {
 			&t.Title,
 			&t.Description,
 			&t.DueDate,
-			&t.Overdue)
+			&t.Overdue,
+			&t.Completed)
 		if err != nil {
 			return nil, err
 		}
@@ -99,24 +115,23 @@ func (sl *Sqlite) Tasks(ctx context.Context) ([]db.TasksResp, error) {
 	return tasks, nil
 }
 func (sl *Sqlite) UpdateTask(ctx context.Context, dto db.TasksDTO, id string) (db.TasksResp, error) {
-	tx, err := sl.db.Begin()
+	tx, err := sl.Db.Begin()
 	if err != nil {
 		return db.TasksResp{}, err
 	}
 	defer tx.Rollback()
 
 	query := `update Tasks set Title=?, Description=?, DueDate=? where Id=?`
-	_, err = tx.Exec(query, dto.Title, dto.Description, dto.DueDate, id)
-	if err != nil {
+	if _, err = tx.ExecContext(ctx, query, dto.Title, dto.Description, dto.DueDate, id); err != nil {
 		return db.TasksResp{}, err
 	}
 
 	var task db.TasksResp
 
-	query = `select Title, Description, DueDate, Overdue from Tasks where id=?`
-	row := tx.QueryRow(query, id)
+	query = `select Title, Description, DueDate, Overdue, Completed from Tasks where id=?`
+	row := tx.QueryRowContext(ctx, query, id)
 
-	err = row.Scan(&task.Title, &task.Description, &task.DueDate, &task.Overdue)
+	err = row.Scan(&task.Title, &task.Description, &task.DueDate, &task.Overdue, &task.Completed)
 	if err != nil {
 		return db.TasksResp{}, err
 	}
@@ -129,7 +144,7 @@ func (sl *Sqlite) UpdateTask(ctx context.Context, dto db.TasksDTO, id string) (d
 func (sl *Sqlite) DeleteTask(ctx context.Context, id string) (bool, error) {
 	query := `delete from Tasks where Id=?`
 
-	res, err := sl.db.Exec(query, id)
+	res, err := sl.Db.ExecContext(ctx, query, id)
 	if err != nil {
 		return false, err
 	}
@@ -145,25 +160,22 @@ func (sl *Sqlite) DeleteTask(ctx context.Context, id string) (bool, error) {
 
 	return true, nil
 }
-
 func (sl *Sqlite) CompleteTask(ctx context.Context, dto db.CompleteDTO, id string) (db.TasksResp, error) {
-
-	tx, err := sl.db.Begin()
+	tx, err := sl.Db.Begin()
 	if err != nil {
 		return db.TasksResp{}, err
 	}
 	defer tx.Rollback()
 
 	query := `update Tasks set Completed=? where Id=?`
-	_, err = tx.Exec(query, dto.Completed, id)
-	if err != nil {
+	if _, err = tx.ExecContext(ctx, query, dto.Completed, id); err != nil {
 		return db.TasksResp{}, err
 	}
 
 	var task db.TasksResp
 
 	query = `select Title, Description, DueDate, Overdue, Completed from Tasks where id=?`
-	row := tx.QueryRow(query, id)
+	row := tx.QueryRowContext(ctx, query, id)
 
 	err = row.Scan(&task.Title, &task.Description, &task.DueDate, &task.Overdue, &task.Completed)
 	if err != nil {
@@ -173,6 +185,13 @@ func (sl *Sqlite) CompleteTask(ctx context.Context, dto db.CompleteDTO, id strin
 	if err = tx.Commit(); err != nil {
 		return db.TasksResp{}, err
 	}
-
-	return db.TasksResp{}, nil
+	return task, nil
+}
+func (sl *Sqlite) CheckTasks(ctx context.Context) error {
+	now := time.Now().Format(time.DateOnly)
+	query := `update Tasks set Overdue=true where DueDate < ? and Overdue=false`
+	if _, err := sl.Db.ExecContext(ctx, query, now); err != nil {
+		return err
+	}
+	return nil
 }

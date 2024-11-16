@@ -27,7 +27,7 @@ func (api *API) CreateTasks(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	task, err := api.conn.AddTask(context.Background(), info)
+	task, err := api.Conn.AddTask(context.Background(), info)
 	if ServerInternalError(err, w) {
 		return
 	}
@@ -35,7 +35,7 @@ func (api *API) CreateTasks(w http.ResponseWriter, req *http.Request) {
 	sendResp(task, w)
 }
 func (api *API) GetTasks(w http.ResponseWriter, req *http.Request) {
-	tasks, err := api.conn.Tasks(context.Background())
+	tasks, err := api.Conn.Tasks(context.Background())
 	if ServerInternalError(err, w) {
 		return
 	}
@@ -57,7 +57,7 @@ func (api *API) PutTasks(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	task, err := api.conn.UpdateTask(context.Background(), info, id)
+	task, err := api.Conn.UpdateTask(context.Background(), info, id)
 	if ServerInternalError(err, w) {
 		return
 	}
@@ -66,8 +66,7 @@ func (api *API) PutTasks(w http.ResponseWriter, req *http.Request) {
 }
 func (api *API) DeleteTasks(w http.ResponseWriter, req *http.Request) {
 	id := mux.Vars(req)["id"]
-
-	isDelete, err := api.conn.DeleteTask(context.TODO(), id)
+	isDelete, err := api.Conn.DeleteTask(context.TODO(), id)
 	if ServerInternalError(err, w) {
 		return
 	}
@@ -78,18 +77,7 @@ func (api *API) DeleteTasks(w http.ResponseWriter, req *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 	}
 }
-
 func (api *API) CompleteTask(w http.ResponseWriter, req *http.Request) {
-	/*
-		TODO do
-		Отметка завершения задачи
-
-		Параметры запроса:
-			JSON объект с полем completed (boolean).
-
-		Ответ:
-			обновленный объект задачи.
-	*/
 	id := mux.Vars(req)["id"]
 
 	body, err := io.ReadAll(req.Body)
@@ -98,7 +86,9 @@ func (api *API) CompleteTask(w http.ResponseWriter, req *http.Request) {
 	err = json.Unmarshal(body, &info)
 	ServerInternalError(err, w)
 
-	task, err := api.conn.CompleteTask(context.TODO(), info, id)
+	var task db.TasksResp
+
+	task, err = api.Conn.CompleteTask(context.TODO(), info, id)
 	if ServerInternalError(err, w) {
 		return
 	}
@@ -116,5 +106,3 @@ func sendResp(obj any, w http.ResponseWriter) {
 		return
 	}
 }
-
-//TODO: !!! добавить поле completed в БД и в запросы, чекнуть предыдущие методы

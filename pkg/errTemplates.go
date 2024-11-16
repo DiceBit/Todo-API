@@ -7,7 +7,7 @@ import (
 
 func ServerInternalError(err error, w http.ResponseWriter) bool {
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		w.WriteHeader(http.StatusInternalServerError)
 		log.Println(err)
 		return true
 	}
@@ -16,7 +16,7 @@ func ServerInternalError(err error, w http.ResponseWriter) bool {
 
 func BadRequestError(err error, w http.ResponseWriter) bool {
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		w.WriteHeader(http.StatusBadRequest)
 		log.Println(err)
 		return true
 	}

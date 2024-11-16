@@ -1,8 +1,10 @@
 package pkg
 
 import (
+	"context"
 	"log"
 	"net/http"
+	"time"
 )
 
 type Server struct {
@@ -18,17 +20,12 @@ func NewSrv() *Server {
 
 func (srv *Server) RunServer() {
 	srv.api.Endpoints()
+
+	go srv.api.CheckFunc(context.Background(), 1*time.Minute)
+
 	log.Println("Server started")
-	log.Fatal(http.ListenAndServe("localhost:8080", srv.api.router))
+	log.Fatal(http.ListenAndServe(":8080", srv.api.router))
 }
-
 func (srv *Server) StopServer() {
-	srv.api.conn.CloseConn()
+	srv.api.Conn.CloseConn()
 }
-
-/*
-TODO: Фоновая задача: добавьте горутину, которая будет периодически (например, раз в минуту)
-проверять все задачи на наличие истекшего срока (due_date).
-Если срок истек, обновите статус задачи, установив поле overdue в true.
-Используйте канал для контроля завершения фоновой задачи при остановке приложения.
-*/
